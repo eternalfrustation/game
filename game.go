@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"math/rand"
 	"os"
 	"runtime"
 	"strings"
@@ -12,9 +13,9 @@ import (
 	// "path/filepath"
 	"io/ioutil"
 
-	"unsafe"
+	// "unsafe"
 
-	"github.com/go-gl/gl/v4.1-compatibility/gl"
+	"github.com/go-gl/gl/v4.1-core/gl"
 	"github.com/go-gl/glfw/v3.3/glfw"
 	"github.com/go-gl/mathgl/mgl64"
 )
@@ -22,14 +23,16 @@ import (
 const (
 	width  = 500
 	height = 500
+	fps    = 30
 )
 
 var (
 	program              uint32
 	window               *glfw.Window
-	player               = Player{Rect{}, Triangle{}, Triangle{}, Triangle{}, 0, 0, math.Pi / 4}
+	player               = *new(Player)
 	vertexShaderSource   = readfile("vert.glsl")
 	fragmentShaderSource = readfile("frag.glsl")
+	troops               = *new([5]Enemy)
 	//[]float32{
 	// 0, 0.5, 0,
 	// -0.5, -0.5, 0,
@@ -54,14 +57,38 @@ type Circle struct {
 type Enemy struct {
 	x    float32
 	y    float32
+	size float32
+	direction float64
 	body Circle
 }
 
-func (z *Circle) draw(opacity float64) {
+func (e *Enemy) draw() {
+	e.x = e.x + float32(math.Cos(e.direction))*0.01
+	e.y = e.y + float32(math.Sin(e.direction))*0.01
+	e.body.x = e.x
+	e.body.y = e.y
+	e.body.r = e.size
+	// fmt.Println(e.x)
+	e.body.draw()
+	if e.x > 1.5 || e.x < -0.5 || e.y > 1.5 || e.y < -0.5 {
+		e.spawn()
+	}
+}
+
+func (e *Enemy) spawn() {
+	e.x = 2*rand.Float32()+0.25
+	e.y = 2*rand.Float32()+0.25
+	e.size = rand.Float32()/3
+	playerdir := math.Atan2(float64(player.y-e.y), float64(player.x-e.x))
+	e.direction = playerdir + (0.5*rand.Float64() - 0.25)
+	e.draw()
+}
+
+func (z *Circle) draw() {
 	cx := z.x
 	cy := z.y
 	r := z.r
-	num_segments := 50
+	num_segments := 40
 	theta := 2 * 3.1415926 / float64(num_segments)
 	c := math.Cos(theta) //precalculate the sine and cosine
 	s := math.Sin(theta)
@@ -69,19 +96,20 @@ func (z *Circle) draw(opacity float64) {
 
 	x := r //we start at angle = 0
 	var y float32
-	gl.Color4ub(255, 255, 255, 255)
-	gl.Begin(gl.LINE_LOOP)
-	gl.Color4ub(255, 255, 255, 255)
+	circleslice := []float32{}
+	circlecolor := []float32{}
 	for ii := 0; ii < num_segments; ii++ {
-		gl.Vertex2f(cx, cy)
-		gl.Vertex2f(x+cx, float32(y)+cy)
+		circleslice = append(circleslice, cx, cy, 0, 0, 0, 0)
+		circleslice = append(circleslice, x+cx, y+cy, 0, 0.8, 0.8, 0.8)
 
 		//apply the rotation matrix
 		t = x
 		x = float32(c)*x - float32(s)*y
 		y = float32(s)*t + float32(c)*y
 	}
-	gl.End()
+	gl.BindVertexArray(makeVao(circleslice, circlecolor))
+	gl.DrawArrays(gl.LINES, 0, int32(len(circleslice))/3)
+
 }
 
 type Player struct {
@@ -128,44 +156,57 @@ func (play *Player) draw(scale float32) {
 }
 
 func (play *Player) fire() {
-	ball := Circle{player.hat.X3, player.hat.Y3, 0.1}
+	ball := Circle{player.hat.X3, player.hat.Y3, 0.04}
 	var distfromplayer float64
 	for distfromplayer < 0.5 {
+		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 		distfromplayer = math.Sqrt(float64((ball.x-player.x)*(ball.x-player.x) + (ball.y-player.y)*(ball.y-player.y)))
-		ball.x += 0.1 * float32(math.Cos(play.direction))
-		ball.y += 0.1 * float32(math.Sin(play.direction))
-		ball.draw(0.1)
+		ball.x += 0.05 * float32(math.Cos(play.direction))
+		ball.y += 0.05 * float32(math.Sin(play.direction))
+		time.Sleep(time.Second / fps)
+		ball.draw()
+		draw()
 	}
 }
-func (a Triangle) getVao() uint32 {
-	return makeVao(a.getArray())
+func (a *Triangle) getVao(colorpoints []float32) uint32 {
+	return makeVao(a.getArray(), colorpoints)
 }
-func (a Rect) getVao() uint32 {
-	return makeVao(a.getArray())
+func (a *Rect) getVao(colorpoints []float32) uint32 {
+	return makeVao(a.getArray(), colorpoints)
 }
-func (a Triangle) getArray() []float32 {
+func (a *Triangle) getArray() []float32 {
 	return []float32{
-		a.X1, a.Y1, 0, 1.0, 0.0, 0.0,
-		a.X2, a.Y2, 0, 0.0, 1.0, 0.0,
-		a.X3, a.Y3, 0, 0.0, 0.0, 1.0,
+		a.X1, a.Y1, 0, 0, 1, 0,
+		a.X2, a.Y2, 0, 0, 1, 0,
+		a.X3, a.Y3, 0, 0.5, 0.5, 0.5,
 	}
 }
 func (c *Rect) draw() {
-	gl.BindVertexArray(c.getVao())
-	gl.Color4ub(255, 255, 255, 255)
+	gl.BindVertexArray(c.getVao(c.getColors()))
 	gl.DrawArrays(gl.TRIANGLES, 0, int32(len(c.getArray())/3))
 }
 
-func (c *Triangle) getVaoColor(r1, g1, b1, a1, r2, g2, b2, a2, r3, g3, b3, a3 float32) uint32 {
-	return makeVaoColor(c.getArrayColor(r1, g1, b1, a1, r2, g2, b2, a2, r3, g3, b3, a3))
+func (c *Rect) getColors() []float32 {
+	return []float32{
+		1, 0, 0,
+		0, 1, 0,
+		0, 0, 1,
+		1, 1, 1,
+		1, 1, 0,
+		0, 1, 1,
+	}
 }
 
-func (c *Triangle) getArrayColor(r1, g1, b1, a1, r2, g2, b2, a2, r3, g3, b3, a3 float32) []float32 {
-	return []float32{r1, g1, b1, a1, r2, g2, b2, a2, r3, g3, b3, a3}
+func (c *Triangle) getColors() []float32 {
+	return []float32{
+		1, 0, 0,
+		0, 1, 0,
+		0, 0, 1,
+	}
 }
 
 func (c *Triangle) draw() {
-	gl.BindVertexArray(c.getVao())
+	gl.BindVertexArray(c.getVao(c.getColors()))
 	//	gl.BindVertexArray(c.getVaoColor(1,0.5,1,1,1,1,1,1,1,1,1,1))
 	//	gl.Color4ub(255, 255, 255, 255)
 	gl.DrawArrays(gl.TRIANGLES, 0, int32(len(c.getArray())/3))
@@ -182,14 +223,14 @@ type Rect struct {
 	Y4 float32
 }
 
-func (a Rect) getArray() []float32 {
+func (a *Rect) getArray() []float32 {
 	return []float32{
-		a.X1, a.Y1, 0, 1, 0, 1,
-		a.X2, a.Y2, 0, 1, 0, 0,
+		a.X1, a.Y1, 0, 0, 1, 0,
+		a.X2, a.Y2, 0, 0, 1, 0,
 		a.X3, a.Y3, 0, 0, 1, 0,
-		a.X3, a.Y3, 0, 1, 1, 1,
-		a.X2, a.Y2, 0, 0, 0, 1,
-		a.X4, a.Y4, 0, 1, 1, 0}
+		a.X3, a.Y3, 0, 0, 1, 0,
+		a.X2, a.Y2, 0, 0, 1, 0,
+		a.X4, a.Y4, 0, 0, 1, 0}
 }
 func main() {
 	runtime.LockOSThread()
@@ -200,21 +241,22 @@ func main() {
 	window.SetKeyCallback(keyHandler)
 	defer glfw.Terminate()
 	program = initOpenGL()
+	for i := 0; i < len(troops); i++ {
+		troops[i].spawn()
+	}
 	for !window.ShouldClose() {
+		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+		time.Sleep(time.Second / fps)
 		draw()
 	}
 }
 
 func draw() {
-	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 	gl.UseProgram(program)
-	time.Sleep(time.Duration(time.Second / 60))
-	// rect.draw()
-	// triangle.draw()
-	// gl.Color4ub(255,255,255,255)
 	player.draw(0.1)
-	// gl.BindVertexArray(vao)
-	// gl.DrawArrays(gl.TRIANGLES, 0, int32(len(rect.getArray())/3))
+	for i := 0; i < len(troops); i++ {
+		troops[i].draw()
+	}
 	glfw.PollEvents()
 	window.SwapBuffers()
 }
@@ -262,38 +304,20 @@ func initOpenGL() uint32 {
 }
 
 // makeVao initializes and returns a vertex array from the points provided.
-func makeVao(points []float32) uint32 {
+
+func makeVao(points []float32, colorspoints []float32) uint32 {
 	var vbo uint32
 	gl.GenBuffers(1, &vbo)
 	gl.BindBuffer(gl.ARRAY_BUFFER, vbo)
 	gl.BufferData(gl.ARRAY_BUFFER, 4*len(points), gl.Ptr(points), gl.STREAM_DRAW)
-
 	var vao uint32
 	gl.GenVertexArrays(1, &vao)
 	gl.BindVertexArray(vao)
 	gl.BindBuffer(gl.ARRAY_BUFFER, vbo)
-	gl.VertexAttribPointer(0, 3, gl.FLOAT, false, 24, unsafe.Pointer(uintptr(0)))
+	gl.VertexAttribPointer(0, 3, gl.FLOAT, false, 24, gl.PtrOffset(12))
 	gl.EnableVertexAttribArray(0)
-	gl.VertexAttribPointer(1, 3, gl.FLOAT, false, 24, unsafe.Pointer(uintptr(12)))
+	gl.VertexAttribPointer(1, 3, gl.FLOAT, false, 24, nil)
 	gl.EnableVertexAttribArray(1)
-
-	return vao
-}
-
-// makeVaoColor initializes and returns a vertex array for RGBA from the points provided.
-func makeVaoColor(points []float32) uint32 {
-	var vbo uint32
-	gl.GenBuffers(1, &vbo)
-	gl.BindBuffer(gl.ARRAY_BUFFER, vbo)
-	gl.BufferData(gl.ARRAY_BUFFER, len(points), gl.Ptr(points), gl.STATIC_DRAW)
-
-	var vao uint32
-	gl.GenVertexArrays(1, &vao)
-	gl.BindVertexArray(vao)
-	gl.EnableVertexAttribArray(1)
-	gl.BindBuffer(gl.ARRAY_BUFFER, vbo)
-	gl.VertexAttribPointer(1, 3, gl.FLOAT, false, 0, nil)
-
 	return vao
 }
 
@@ -348,7 +372,7 @@ func refresh(w *glfw.Window) {
 // 	return ostart + (ostop-ostart)*((value-istart)/(istop-istart))
 // }
 func mouseButtonHandler(w *glfw.Window, button glfw.MouseButton, action glfw.Action, mod glfw.ModifierKey) {
-	if button == glfw.MouseButtonLeft {
+	if button == glfw.MouseButtonLeft && action == glfw.Press {
 		player.fire()
 	}
 }

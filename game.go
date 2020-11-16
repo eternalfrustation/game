@@ -33,11 +33,6 @@ var (
 	vertexShaderSource   = readfile("vert.glsl")
 	fragmentShaderSource = readfile("frag.glsl")
 	troops               = *new([5]Enemy)
-	//[]float32{
-	// 0, 0.5, 0,
-	// -0.5, -0.5, 0,
-	// 0.5, -0.5, 0,
-	// }
 )
 
 type Triangle struct {
@@ -55,11 +50,11 @@ type Circle struct {
 }
 
 type Enemy struct {
-	x    float32
-	y    float32
-	size float32
+	x         float32
+	y         float32
+	size      float32
 	direction float64
-	body Circle
+	body      Circle
 }
 
 func (e *Enemy) draw() {
@@ -70,15 +65,28 @@ func (e *Enemy) draw() {
 	e.body.r = e.size
 	// fmt.Println(e.x)
 	e.body.draw()
-	if e.x > 1.5 || e.x < -0.5 || e.y > 1.5 || e.y < -0.5 {
+	if e.x > 2 || e.x < -2 || e.y > 2 || e.y < -2 {
 		e.spawn()
 	}
 }
 
 func (e *Enemy) spawn() {
-	e.x = 2*rand.Float32()+0.25
-	e.y = 2*rand.Float32()+0.25
-	e.size = rand.Float32()/3
+	e.x = rand.Float32() - 0.5
+	e.y = rand.Float32() - 0.5
+	fmt.Println(e.x, e.y)
+	if e.x < 0 {
+		e.x -= 1
+	}
+	if e.x > 0 {
+		e.x += 1
+	}
+	if e.y < 0 {
+		e.y -= 1
+	}
+	if e.y > 0 {
+		e.y += 1
+	}
+	e.size = map1(rand.Float32(), 0, 1, 0.1, 0.15)
 	playerdir := math.Atan2(float64(player.y-e.y), float64(player.x-e.x))
 	e.direction = playerdir + (0.5*rand.Float64() - 0.25)
 	e.draw()
@@ -158,6 +166,7 @@ func (play *Player) draw(scale float32) {
 func (play *Player) fire() {
 	ball := Circle{player.hat.X3, player.hat.Y3, 0.04}
 	var distfromplayer float64
+	outer:
 	for distfromplayer < 0.5 {
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 		distfromplayer = math.Sqrt(float64((ball.x-player.x)*(ball.x-player.x) + (ball.y-player.y)*(ball.y-player.y)))
@@ -165,6 +174,12 @@ func (play *Player) fire() {
 		ball.y += 0.05 * float32(math.Sin(play.direction))
 		time.Sleep(time.Second / fps)
 		ball.draw()
+		for i := 0; i < 5; i++ {
+			if float64(ball.r + troops[i].body.r) > math.Sqrt(float64((ball.x-troops[i].x)*(ball.x-troops[i].x)) + float64((ball.y-troops[i].y)*(ball.y-troops[i].y))) {
+				troops[i].spawn()
+				break outer
+			}
+		}
 		draw()
 	}
 }
@@ -368,9 +383,9 @@ func refresh(w *glfw.Window) {
 	gl.Viewport(0, 0, int32(widthw), int32(heightw))
 }
 
-// func map1(value float64, istart float64, istop float64, ostart float64, ostop float64) float64 {
-// 	return ostart + (ostop-ostart)*((value-istart)/(istop-istart))
-// }
+func map1(value, istart, istop, ostart, ostop float32) float32 {
+	return ostart + (ostop-ostart)*((value-istart)/(istop-istart))
+}
 func mouseButtonHandler(w *glfw.Window, button glfw.MouseButton, action glfw.Action, mod glfw.ModifierKey) {
 	if button == glfw.MouseButtonLeft && action == glfw.Press {
 		player.fire()

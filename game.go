@@ -2,10 +2,12 @@ package main
 
 import (
 	"fmt"
+	"unsafe"
 	//"github.com/go-gl/gltext"
-	"github.com/hajimehoshi/oto"
 	"log"
 	"math"
+
+	"github.com/hajimehoshi/oto"
 
 	"math/rand"
 	"os"
@@ -16,15 +18,18 @@ import (
 	"strings"
 	"sync"
 	"time"
+
 	// "path/filepath"
 	"io/ioutil"
 
+	"github.com/eternalfrustation/fontgl"
+
 	// "unsafe"
 	"flag"
-	"github.com/go-gl/gl/v4.1-core/gl"
+
+	"github.com/go-gl/gl/v4.1-compatibility/gl"
 	"github.com/go-gl/glfw/v3.3/glfw"
 	"github.com/go-gl/mathgl/mgl64"
-	//	"golang.org/x/image/font/sfnt"
 )
 
 const (
@@ -189,6 +194,7 @@ func (e *Enemy) draw() {
 			}
 			fmt.Println(file)
 			fmt.Println(io.Copy(playersound, file))
+			os.Exit(0)
 		}()
 		// TODO
 	}
@@ -401,24 +407,38 @@ func main() {
 	gl.Enable(gl.BLEND)
 	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 	// code from here
-	gl.LineWidth(2)
+	gl.LineWidth(1)
+	gl.PointSize(50)
+	fnt := fontgl.Setup("font/font.ttf")
+	Lines, _ := fontgl.GetTriText("H", fnt, -1, -1)
+	//	fmt.Println(Lines)
+	fmt.Println("after")
+	gl.DebugMessageCallback(glprinterr, nil)
+	Lvao := makeVao(Lines)
 	for !window.ShouldClose() {
-
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 		time.Sleep(time.Second / fps)
+
+		gl.UseProgram(program)
+		//	fmt.Println("Lines")
+		gl.BindVertexArray(Lvao)
+		gl.DrawArrays(gl.LINES, 0, int32(len(Lines)/3))
+		//	fmt.Println("Points")
 		draw()
 		//	drawstring("hello", 0, 0)
+
+		glfw.PollEvents()
+		window.SwapBuffers()
 	}
 }
-
+func glprinterr(source, gltype , id, severity uint32, length int32, message string, userparam unsafe.Pointer) {
+	fmt.Println(source, gltype, id, severity, length, message)
+}
 func draw() {
-	gl.UseProgram(program)
 	player.draw(0.1)
 	for i := 0; i < len(troops); i++ {
 		troops[i].draw()
 	}
-	glfw.PollEvents()
-	window.SwapBuffers()
 }
 
 // initGlfw initializes glfw and returns a Window to use.
@@ -469,7 +489,7 @@ func makeVao(points []float32) uint32 {
 	var vbo uint32
 	gl.GenBuffers(1, &vbo)
 	gl.BindBuffer(gl.ARRAY_BUFFER, vbo)
-	gl.BufferData(gl.ARRAY_BUFFER, 4*len(points), gl.Ptr(points), gl.STREAM_DRAW)
+	gl.BufferData(gl.ARRAY_BUFFER, 4*len(points), gl.Ptr(&points[0]), gl.DYNAMIC_DRAW)
 	var vao uint32
 	gl.GenVertexArrays(1, &vao)
 	gl.BindVertexArray(vao)
@@ -526,6 +546,10 @@ func keyHandler(win *glfw.Window, key glfw.Key, scancode int, action glfw.Action
 func refresh(w *glfw.Window) {
 	widthw, heightw := w.GetFramebufferSize()
 	gl.Viewport(0, 0, int32(widthw), int32(heightw))
+	gl.MatrixMode(gl.PROJECTION_MATRIX)
+	gl.LoadIdentity()
+	newmat := mgl64.Perspective(mgl64.DegToRad(180), float64(widthw)/float64(heightw), 0.1, 100.0)
+	gl.MultMatrixd(&newmat[0])
 }
 
 func map1(value, istart, istop, ostart, ostop float32) float32 {

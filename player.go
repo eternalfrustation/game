@@ -9,5 +9,5 @@ var (
 )
 
 func InitSprites() {
-	Player.Pts = append(Player.Pts, &Point{P:mgl32.Vec3{}})
+	Player.Pts = append(Player.Pts, &Point{P: mgl32.Vec3{}})
 }

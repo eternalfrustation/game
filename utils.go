@@ -2,31 +2,32 @@ package main
 
 import (
 	"fmt"
-	"strings"
 	"github.com/go-gl/gl/v4.1-core/gl"
+//	"github.com/go-gl/mathgl/mgl32"
+	"strings"
 )
 
 func compileShader(source string, shaderType uint32) (uint32, error) {
-    shader := gl.CreateShader(shaderType)
-    
-    csources, _ := gl.Strs(source)
-    gl.ShaderSource(shader, 1, csources, nil)
-//    free()
-    gl.CompileShader(shader)
-    
-    var status int32
-    gl.GetShaderiv(shader, gl.COMPILE_STATUS, &status)
-    if status == gl.FALSE {
-        var logLength int32
-        gl.GetShaderiv(shader, gl.INFO_LOG_LENGTH, &logLength)
-        
-        log := strings.Repeat("\x00", int(logLength+1))
-        gl.GetShaderInfoLog(shader, logLength, nil, gl.Str(log))
-        
-        return 0, fmt.Errorf("failed to compile %v: %v", source, log)
-    }
-    
-    return shader, nil
+	shader := gl.CreateShader(shaderType)
+
+	csources, free := gl.Strs(source)
+	gl.ShaderSource(shader, 1, csources, nil)
+	free()
+	gl.CompileShader(shader)
+
+	var status int32
+	gl.GetShaderiv(shader, gl.COMPILE_STATUS, &status)
+	if status == gl.FALSE {
+		var logLength int32
+		gl.GetShaderiv(shader, gl.INFO_LOG_LENGTH, &logLength)
+
+		log := strings.Repeat("\x00", int(logLength+1))
+		gl.GetShaderInfoLog(shader, logLength, nil, gl.Str(log))
+
+		return 0, fmt.Errorf("failed to compile %v: %v", source, log)
+	}
+
+	return shader, nil
 }
 
 func newProg(vertShad, fragShad string) (uint32, error) {
@@ -38,24 +39,30 @@ func newProg(vertShad, fragShad string) (uint32, error) {
 	if err != nil {
 		panic(err)
 	}
-	program := gl.CreateProgram()
-	gl.AttachShader(program, vertexShader)
-	gl.AttachShader(program, fragmentShader)
-	gl.LinkProgram(program)
+	prog := gl.CreateProgram()
+	gl.AttachShader(prog, vertexShader)
+	gl.AttachShader(prog, fragmentShader)
+	gl.LinkProgram(prog)
 	var status int32
-	gl.GetProgramiv(program, gl.LINK_STATUS, &status)
+	gl.GetProgramiv(prog, gl.LINK_STATUS, &status)
 	if status == gl.FALSE {
 		var logLength int32
-		gl.GetProgramiv(program, gl.INFO_LOG_LENGTH, &logLength)
+		gl.GetProgramiv(prog, gl.INFO_LOG_LENGTH, &logLength)
 
 		log := strings.Repeat("\x00", int(logLength+1))
-		gl.GetProgramInfoLog(program, logLength, nil, gl.Str(log))
+		gl.GetProgramInfoLog(prog, logLength, nil, gl.Str(log))
 
-		return 0, fmt.Errorf("failed to link program: %v", log)
+		return 0, fmt.Errorf("failed to link prog: %v", log)
 	}
 
-//	gl.DeleteShader(vertexShader)
-//	gl.DeleteShader(fragmentShader)
+	gl.DeleteShader(vertexShader)
+	gl.DeleteShader(fragmentShader)
 
-	return program, nil
+	return prog, nil
+}
+
+func UpdateUniformMat4fv(name string, prog uint32, value *float32) {
+	UniformLocation := gl.GetUniformLocation(prog, gl.Str(name+"\x00"))
+	gl.UniformMatrix4fv(UniformLocation, 1, false, value)
+
 }

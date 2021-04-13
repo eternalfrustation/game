@@ -74,12 +74,12 @@ func (p *Point) SetN(i, j, k float32) *Point {
 
 type Shape struct {
 	// Points making up the shape
-	Pts      []*Point
-	ModelMat mgl32.Mat4
-	Vao      uint32
-	Vbo      uint32
-	Prog     uint32
-	Type uint32
+	Pts        []*Point
+	ModelMat   mgl32.Mat4
+	Vao        uint32
+	Vbo        uint32
+	Prog       uint32
+	Type       uint32
 	Primitives int32
 }
 

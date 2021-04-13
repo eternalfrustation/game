@@ -9,7 +9,6 @@ uniform int vert;
 out vec4 Col;
 out vec3 Nor;
 void main() {
-//	gl_Position = projection * view * model * vec4(aPos, 1.0);
 	gl_Position = view * model * vec4(aPos, 1.0);
 	Col = aCol;
 	Nor = aNor;

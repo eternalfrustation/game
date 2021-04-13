@@ -27,6 +27,7 @@ const (
 var (
 	viewMat mgl32.Mat4
 	projMat mgl32.Mat4
+	program uint32
 )
 
 func main() {
@@ -88,37 +89,36 @@ func main() {
 		fmt.Println(source, gltype, severity, id, length, message, userParam)
 	}, nil)
 	// Create an OpenGL "Program" and link it for current drawing
-	program, err := newProg(string(vertexShader), string(fragmentShader))
+	program, err = newProg(string(vertexShader), string(fragmentShader))
 	if err != nil {
 		panic(err)
 	}
 	// Check for the version
 	version := gl.GoStr(gl.GetString(gl.VERSION))
 	fmt.Println("OpenGL Version", version)
-
-	// set the value of Projection matrix
-	projMat = mgl32.Perspective(mgl32.DegToRad(60), float32(W)/H, 0.1, 10)
-	projUniform := gl.GetUniformLocation(program, gl.Str("projection\x00"))
-	gl.UniformMatrix4fv(projUniform, 1, false, &projMat[0])
-	// Set the value of view matrix
-	viewMat = mgl32.LookAt(
-		0, 0, 0.001,
-		0, 0, 1,
-		0, 1, 0,
-	)
-	viewUniform := gl.GetUniformLocation(program, gl.Str("view\x00"))
-	gl.UniformMatrix4fv(viewUniform, 1, false, &viewMat[0])
-	fmt.Println(viewMat)
 	// Main draw loop
 	// Draw a Shape
 	shape := NewShape(mgl32.Ident4(), program)
-	shape.Pts = append(shape.Pts, PC(0.5, 1, 1, 1, 1, 1, 1), PC(1, 1, 1, 1, 1, 1, 1), PC(0, 1, 1, 1, 1, 1, 1), PC(0, 0, 0, 1, 1, 1, 1))
+	shape.Pts = append(shape.Pts,
+	PC(0.5, 1, 1, 1, 1, 1, 1),
+	PC(1, 1, 1, 1, 1, 1, 1),
+	PC(0, 1, 1, 1, 1, 1, 1),
+	PC(0, 0, 0, 1, 1, 1, 1),
+	PC(0,0,1,1,1,0,1),
+)
 	// Generate the Vao for the shape
 	shape.GenVao()
 	shape.SetTypes(gl.TRIANGLE_STRIP)
 	// Set the refresh function for the window
 	// Use this program
 	gl.UseProgram(program)
+	// Calculate the projection matrix
+	projMat = mgl32.Perspective(mgl32.DegToRad(60), float32(W)/H, 0.1, 10)
+	// set the value of Projection matrix
+	UpdateUniformMat4fv("projection", program, &projMat[0])
+	// Set the value of view matrix
+	viewMat = mgl32.Ident4()
+	UpdateUniformMat4fv("view", program, &projMat[0])
 	for !window.ShouldClose() {
 		time.Sleep(time.Second / fps)
 		// Clear everything that was drawn previously

@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"time"
 	"unsafe"
+	"math"
 )
 
 func init() {
@@ -22,6 +23,8 @@ const (
 	W   = 500
 	H   = 500
 	fps = 30
+	pi = 3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679
+	viewRange = 1000
 )
 
 var (
@@ -51,6 +54,7 @@ func main() {
 	}
 	window.SetKeyCallback(HandleKeys)
 	window.SetCursorPosCallback(HandleMouseMovement)
+	window.SetRefreshCallback(Refresh)
 	// Load the icon file
 	icoFile, err := os.Open("ico.png")
 	if err != nil {
@@ -99,32 +103,30 @@ func main() {
 	// Main draw loop
 	// Draw a Shape
 	shape := NewShape(mgl32.Ident4(), program)
-	shape.Pts = append(shape.Pts,
-	PC(0.5, 1, 1, 1, 1, 1, 1),
-	PC(1, 1, 1, 1, 1, 1, 1),
-	PC(0, 1, 1, 1, 1, 1, 1),
-	PC(0, 0, 0, 1, 1, 1, 1),
-	PC(0,0,1,1,1,0,1),
-)
+	for i := float64(0); i < 2*pi; i += pi/10 {
+		shape.Pts = append(shape.Pts, P(0.7*float32(math.Cos(i)), 0.7*float32(math.Sin(i)), 1))
+	} 
 	// Generate the Vao for the shape
 	shape.GenVao()
-	shape.SetTypes(gl.TRIANGLE_STRIP)
+	shape.SetTypes(gl.LINE_LOOP)
 	// Set the refresh function for the window
 	// Use this program
 	gl.UseProgram(program)
 	// Calculate the projection matrix
-	projMat = mgl32.Perspective(mgl32.DegToRad(60), float32(W)/H, 0.1, 10)
+	projMat = mgl32.Ident4()
 	// set the value of Projection matrix
 	UpdateUniformMat4fv("projection", program, &projMat[0])
 	// Set the value of view matrix
 	viewMat = mgl32.Ident4()
 	UpdateUniformMat4fv("view", program, &projMat[0])
+	modelMat := mgl32.Ident4()
+	UpdateUniformMat4fv("model", program, &modelMat[0])
 	for !window.ShouldClose() {
 		time.Sleep(time.Second / fps)
 		// Clear everything that was drawn previously
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 		// Actually draw something
-		shape.Draw()
+	//	shape.Draw()
 		// display everything that was drawn
 		window.SwapBuffers()
 		// check for any events

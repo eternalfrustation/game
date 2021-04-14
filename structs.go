@@ -152,8 +152,6 @@ func (s *Shape) SetTypes(mode uint32) {
 }
 
 func (s *Shape) Draw() {
-	modelLocation := gl.GetUniformLocation(s.Prog, &[]uint8("model")[0])
-	gl.UniformMatrix4fv(modelLocation, 1, false, &s.ModelMat[0])
 	gl.BindVertexArray(s.Vao)
 	gl.DrawArrays(s.Type, 0, s.Primitives)
 }

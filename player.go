@@ -5,9 +5,9 @@ import (
 )
 
 var (
-	Player = new(Shape)
+	player *Shape
 )
 
 func InitSprites() {
-	Player.Pts = append(Player.Pts, &Point{P: mgl32.Vec3{}})
+	Player = NewShape(mgl32.Ident4(), program)
 }

@@ -2,8 +2,12 @@ package main
 
 import (
 	"fmt"
+
 	"github.com/go-gl/gl/v4.1-core/gl"
-//	"github.com/go-gl/mathgl/mgl32"
+	"github.com/go-gl/glfw/v3.3/glfw"
+	"github.com/go-gl/mathgl/mgl32"
+
+	//	"github.com/go-gl/mathgl/mgl32"
 	"strings"
 )
 
@@ -65,4 +69,12 @@ func UpdateUniformMat4fv(name string, prog uint32, value *float32) {
 	UniformLocation := gl.GetUniformLocation(prog, gl.Str(name+"\x00"))
 	gl.UniformMatrix4fv(UniformLocation, 1, false, value)
 
+}
+
+func Refresh(w *glfw.Window) {
+	width, height := w.GetFramebufferSize()
+	gl.Viewport(0, 0, int32(width), int32(height))
+	projectionMat := mgl32.Perspective(mgl32.DegToRad(90),float32(width) / float32(height), 1/viewRange, viewRange)
+	UpdateUniformMat4fv("projection", program, &projectionMat[0])
+	fmt.Println(float32(width) / float32(height))
 }

@@ -9,5 +9,8 @@ var (
 )
 
 func InitSprites() {
-	Player = NewShape(mgl32.Ident4(), program)
+	player = NewShape(mgl32.Ident4(), program, 
+	P(0.5,1,1),
+	P()
+)
 }
